@@ -13,16 +13,20 @@ public class ClassSession {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    private String professorName; // "Dr. Sharma"
-    private String subject;       // "Advanced Java"
-    private boolean isActive;     // true = Broadcasting
+    private String professorName; 
+    private String subject;       
+    private boolean isActive;     
     private LocalDateTime startTime;
+    
+    // Stores the 4-digit OTP
+    private String password; 
 
     public ClassSession() {}
 
-    public ClassSession(String professorName, String subject) {
+    public ClassSession(String professorName, String subject, String password) {
         this.professorName = professorName;
         this.subject = subject;
+        this.password = password;
         this.isActive = true;
         this.startTime = LocalDateTime.now();
     }
@@ -32,6 +36,13 @@ public class ClassSession {
     public String getProfessorName() { return professorName; }
     public String getSubject() { return subject; }
     public boolean isActive() { return isActive; }
+    public String getPassword() { return password; }
     
+    // 🆕 IMPORTANT FIX: Add this Setter!
+    // This allows the Controller to manually assign ID = 1, 2, 3...
+    public void setId(Long id) { 
+        this.id = id; 
+    }
+
     public void endSession() { this.isActive = false; }
 }

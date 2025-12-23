@@ -1,44 +1,65 @@
 package com.example.demo;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @RestController
-@CrossOrigin(origins = "*") // Allow Android to access
+@RequestMapping("/api")
 public class AttendanceController {
 
-    @Autowired private AttendanceRepository attendanceRepo;
-    @Autowired private UserRepository userRepo;       // You need to create this Repo file
-    @Autowired private SessionRepository sessionRepo; // You need to create this Repo file
+    private List<ClassSession> activeSessions = new ArrayList<>();
+    
+    // Counter to generate IDs manually
+    private long idCounter = 1; 
 
-    // 1. GET PROFILE (For UI)
-    @GetMapping("/api/profile")
-    public User getProfile(@RequestParam String uid) {
-        return userRepo.findById(uid).orElse(new User("000", "Guest", "GUEST", "N/A"));
+    // 1. CREATE SESSION
+    @PostMapping("/create")
+    public String createSession(@RequestParam String subject, @RequestParam String professorName) {
+        
+        // Generate Random 4-Digit OTP
+        int randomCode = 1000 + new Random().nextInt(9000);
+        String password = String.valueOf(randomCode);
+
+        // Create the Session
+        ClassSession session = new ClassSession(professorName, subject, password);
+        
+        // Manually set the ID so it is not null
+        session.setId(idCounter++); 
+
+        activeSessions.add(session);
+        
+        System.out.println("✅ Session Created: " + subject + " (ID: " + session.getId() + ", Code: " + password + ")");
+        
+        return password; 
     }
 
-    // 2. PROFESSOR: Start Broadcasting
-    @GetMapping("/api/session/start")
-    public ClassSession startSession(@RequestParam String profName, @RequestParam String subject) {
-        ClassSession session = new ClassSession(profName, subject);
-        return sessionRepo.save(session);
-    }
-
-    // 3. STUDENT: Get List of Broadcasting Classes
-    @GetMapping("/api/sessions/active")
+    // 2. GET ACTIVE SESSIONS
+    @GetMapping("/sessions/active")
     public List<ClassSession> getActiveSessions() {
-        // Return only classes where isActive = true
-        return sessionRepo.findByIsActiveTrue();
+        return activeSessions;
     }
 
-    // 4. MARK ATTENDANCE (Updated to include Session ID)
-    @GetMapping("/api/mark")
+    // 3. MARK ATTENDANCE
+    @GetMapping("/mark")
     public String markAttendance(@RequestParam String uid, @RequestParam Long sessionId) {
-        // Simple Logic: Save that 'uid' was present for 'sessionId'
-        // (You can expand this logic later)
-        System.out.println("Marking: " + uid + " for Session: " + sessionId);
+        System.out.println("Present: " + uid + " for Session ID: " + sessionId);
         return "Success";
+    }
+
+    // 4. STOP SESSION (New Feature 🛑)
+    @PostMapping("/stop")
+    public String stopSession(@RequestParam String subject, @RequestParam String professorName) {
+        // Removes the class if the Professor Name AND Subject match
+        boolean removed = activeSessions.removeIf(session -> 
+            session.getProfessorName().equals(professorName) && 
+            session.getSubject().equals(subject)
+        );
+        
+        if (removed) {
+            System.out.println("🛑 Session Stopped: " + subject);
+            return "Stopped";
+        } else {
+            return "Session not found";
+        }
     }
 }

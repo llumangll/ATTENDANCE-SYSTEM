@@ -18,7 +18,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Welcome, Student"
+            android:text="Welcome"
             android:textSize="22sp"
             android:textStyle="bold"
             android:textColor="#333"/>
@@ -47,6 +47,17 @@
         android:layout_weight="1"
         android:dividerHeight="10dp"
         android:divider="@android:color/transparent"/>
+
+    <TextView
+        android:id="@+id/tvEmpty"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:text="😴 No active classes right now.\nAsk your professor to start one!"
+        android:textSize="18sp"
+        android:textColor="#999"
+        android:visibility="gone"/>
 
     <Button
         android:id="@+id/btnRefresh"

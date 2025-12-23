@@ -1,11 +1,15 @@
 package com.nirma.attendance;
 
+import android.app.AlertDialog;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -18,7 +22,6 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
-import android.content.Intent;
 
 // Firebase Imports
 import com.google.firebase.database.DatabaseReference;
@@ -28,12 +31,13 @@ import java.util.Map;
 
 public class DashboardActivity extends AppCompatActivity {
 
-    // ⚠️ IP Updated: 10.82.33.138
     private static final String BASE_URL = "http://10.82.33.138:8080/api";
 
     private ListView sessionList;
     private Button btnRefresh;
     private TextView tvWelcome;
+    // Note: Use SessionAdapter if you want the Cards, or ArrayAdapter for simple list.
+    // I am using SessionAdapter here since we added it earlier.
     private SessionAdapter adapter;
     private List<ClassSession> sessions = new ArrayList<>();
 
@@ -46,11 +50,8 @@ public class DashboardActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_dashboard);
 
-        // 1. Initialize Firebase
         firebaseRef = FirebaseDatabase.getInstance().getReference("Attendance");
 
-        // 2. Get User Info
-        // We define 'prefs' here ONCE.
         SharedPreferences prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE);
         currentUid = prefs.getString("uid", "Unknown");
         currentName = prefs.getString("name", "Student");
@@ -58,7 +59,7 @@ public class DashboardActivity extends AppCompatActivity {
         tvWelcome = findViewById(R.id.tvWelcome);
         sessionList = findViewById(R.id.sessionList);
         btnRefresh = findViewById(R.id.btnRefresh);
-        Button btnLogout = findViewById(R.id.btnLogout); // Find Logout Button
+        Button btnLogout = findViewById(R.id.btnLogout);
 
         tvWelcome.setText("Welcome, " + currentName);
 
@@ -68,24 +69,46 @@ public class DashboardActivity extends AppCompatActivity {
         fetchActiveSessions();
         btnRefresh.setOnClickListener(v -> fetchActiveSessions());
 
+        // CLICK LISTENER: Ask for Password
         sessionList.setOnItemClickListener((parent, view, position, id) -> {
             ClassSession selectedSession = sessions.get(position);
-            markAttendance(selectedSession);
+            showPasswordDialog(selectedSession);
         });
 
-        // 3. LOGOUT LOGIC (Fixed)
         btnLogout.setOnClickListener(v -> {
-            // We use the 'prefs' variable that already exists.
-            // We do NOT write "SharedPreferences prefs =" again.
             SharedPreferences.Editor editor = prefs.edit();
-            editor.clear(); // Wipe data
+            editor.clear();
             editor.apply();
-
-            // Go back to Login
             Intent intent = new Intent(DashboardActivity.this, LoginActivity.class);
             startActivity(intent);
             finish();
         });
+    }
+
+    private void showPasswordDialog(ClassSession session) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Enter Class Code");
+        builder.setMessage("Ask your professor for the 4-digit code.");
+
+        // Input Field
+        final EditText input = new EditText(this);
+        input.setHint("e.g. 1234");
+        builder.setView(input);
+
+        // Buttons
+        builder.setPositiveButton("Mark Present", (dialog, which) -> {
+            String enteredCode = input.getText().toString().trim();
+
+            // SECURITY CHECK 🔒
+            if (enteredCode.equals(session.getPassword())) {
+                markAttendance(session);
+            } else {
+                Toast.makeText(this, "❌ Wrong Password!", Toast.LENGTH_SHORT).show();
+            }
+        });
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+
+        builder.show();
     }
 
     private void fetchActiveSessions() {
@@ -105,10 +128,12 @@ public class DashboardActivity extends AppCompatActivity {
 
                 for (int i = 0; i < jsonArray.length(); i++) {
                     JSONObject obj = jsonArray.getJSONObject(i);
+                    // NOW READING PASSWORD FROM JSON
                     newSessions.add(new ClassSession(
                             obj.getLong("id"),
                             obj.getString("professorName"),
-                            obj.getString("subject")
+                            obj.getString("subject"),
+                            obj.getString("password")
                     ));
                 }
 
@@ -116,6 +141,15 @@ public class DashboardActivity extends AppCompatActivity {
                     sessions.clear();
                     sessions.addAll(newSessions);
                     adapter.notifyDataSetChanged();
+
+                    TextView tvEmpty = findViewById(R.id.tvEmpty);
+                    if (sessions.isEmpty()) {
+                        sessionList.setVisibility(View.GONE);
+                        tvEmpty.setVisibility(View.VISIBLE);
+                    } else {
+                        sessionList.setVisibility(View.VISIBLE);
+                        tvEmpty.setVisibility(View.GONE);
+                    }
                     Toast.makeText(DashboardActivity.this, "List Updated", Toast.LENGTH_SHORT).show();
                 });
 
@@ -126,21 +160,18 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     private void markAttendance(ClassSession session) {
-        // Part A: Spring Boot Server
+        // Part A: Server
         new Thread(() -> {
             try {
                 String link = BASE_URL + "/mark?uid=" + currentUid + "&sessionId=" + session.getId();
                 URL url = new URL(link);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
-
-                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                reader.readLine();
+                conn.getInputStream(); // Trigger request
 
                 runOnUiThread(() ->
                         Toast.makeText(this, "✅ Marked Present (Server & Cloud)", Toast.LENGTH_LONG).show()
                 );
-
             } catch (Exception e) {
                 runOnUiThread(() ->
                         Toast.makeText(this, "❌ Server Error: " + e.getMessage(), Toast.LENGTH_SHORT).show()
@@ -148,7 +179,7 @@ public class DashboardActivity extends AppCompatActivity {
             }
         }).start();
 
-        // Part B: Firebase Cloud
+        // Part B: Firebase
         String key = firebaseRef.push().getKey();
         Map<String, Object> data = new HashMap<>();
         data.put("studentName", currentName);
@@ -156,9 +187,6 @@ public class DashboardActivity extends AppCompatActivity {
         data.put("subject", session.getSubject());
         data.put("date", new java.util.Date().toString());
 
-        firebaseRef.child(key).setValue(data)
-                .addOnFailureListener(e ->
-                        Toast.makeText(this, "Cloud Error: " + e.getMessage(), Toast.LENGTH_SHORT).show()
-                );
+        firebaseRef.child(key).setValue(data);
     }
 }

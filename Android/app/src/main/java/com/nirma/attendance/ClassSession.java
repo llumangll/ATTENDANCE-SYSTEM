@@ -4,28 +4,22 @@ public class ClassSession {
     private Long id;
     private String professorName;
     private String subject;
-    private boolean isActive;
+    private String password; // 🆕 Added Password
 
-    // 1. Empty Constructor (Required for some tools)
-    public ClassSession() {}
-
-    // 2. THE MISSING PIECE: The 3-Argument Constructor
-    public ClassSession(Long id, String professorName, String subject) {
+    public ClassSession(Long id, String professorName, String subject, String password) {
         this.id = id;
         this.professorName = professorName;
         this.subject = subject;
-        this.isActive = true;
+        this.password = password;
     }
 
-    // Getters
     public Long getId() { return id; }
     public String getProfessorName() { return professorName; }
     public String getSubject() { return subject; }
-    public boolean isActive() { return isActive; }
+    public String getPassword() { return password; } // 🆕 Getter
 
-    // Helper to show text in the list
     @Override
     public String toString() {
-        return subject + " - " + professorName;
+        return subject + " (" + professorName + ")";
     }
 }
