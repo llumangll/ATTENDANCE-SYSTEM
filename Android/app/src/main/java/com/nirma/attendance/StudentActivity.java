@@ -187,7 +187,7 @@ public class StudentActivity extends AppCompatActivity {
         new Thread(() -> {
             try {
                 // Your Laptop IP (Make sure this is correct!)
-                String serverIp = "192.168.1.8";
+                String serverIp = "10.82.33.138";
                 String path = "http://" + serverIp + ":8080/api/mark?uid=" + uid + "&devId=" + devId;
 
                 java.net.URL url = new java.net.URL(path);
