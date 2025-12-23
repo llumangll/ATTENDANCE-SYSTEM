@@ -18,8 +18,9 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import android.content.Intent;
 
-// 1. Firebase Imports
+// Firebase Imports
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import java.util.HashMap;
@@ -27,19 +28,17 @@ import java.util.Map;
 
 public class DashboardActivity extends AppCompatActivity {
 
-    // ⚠️ IMPORTANT: Check your IP Address!
+    // ⚠️ IP Updated: 10.82.33.138
     private static final String BASE_URL = "http://10.82.33.138:8080/api";
 
     private ListView sessionList;
     private Button btnRefresh;
     private TextView tvWelcome;
-    private ArrayAdapter<ClassSession> adapter;
+    private SessionAdapter adapter;
     private List<ClassSession> sessions = new ArrayList<>();
 
     private String currentUid;
     private String currentName;
-
-    // 2. Firebase Reference
     private DatabaseReference firebaseRef;
 
     @Override
@@ -47,9 +46,11 @@ public class DashboardActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_dashboard);
 
-        // 3. Initialize Firebase (Creates a folder called "Attendance" in the cloud)
+        // 1. Initialize Firebase
         firebaseRef = FirebaseDatabase.getInstance().getReference("Attendance");
 
+        // 2. Get User Info
+        // We define 'prefs' here ONCE.
         SharedPreferences prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE);
         currentUid = prefs.getString("uid", "Unknown");
         currentName = prefs.getString("name", "Student");
@@ -57,10 +58,11 @@ public class DashboardActivity extends AppCompatActivity {
         tvWelcome = findViewById(R.id.tvWelcome);
         sessionList = findViewById(R.id.sessionList);
         btnRefresh = findViewById(R.id.btnRefresh);
+        Button btnLogout = findViewById(R.id.btnLogout); // Find Logout Button
 
         tvWelcome.setText("Welcome, " + currentName);
 
-        adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, sessions);
+        adapter = new SessionAdapter(this, sessions);
         sessionList.setAdapter(adapter);
 
         fetchActiveSessions();
@@ -69,6 +71,20 @@ public class DashboardActivity extends AppCompatActivity {
         sessionList.setOnItemClickListener((parent, view, position, id) -> {
             ClassSession selectedSession = sessions.get(position);
             markAttendance(selectedSession);
+        });
+
+        // 3. LOGOUT LOGIC (Fixed)
+        btnLogout.setOnClickListener(v -> {
+            // We use the 'prefs' variable that already exists.
+            // We do NOT write "SharedPreferences prefs =" again.
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.clear(); // Wipe data
+            editor.apply();
+
+            // Go back to Login
+            Intent intent = new Intent(DashboardActivity.this, LoginActivity.class);
+            startActivity(intent);
+            finish();
         });
     }
 
@@ -110,7 +126,7 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     private void markAttendance(ClassSession session) {
-        // --- PART A: Send to Spring Boot (Your Laptop) ---
+        // Part A: Spring Boot Server
         new Thread(() -> {
             try {
                 String link = BASE_URL + "/mark?uid=" + currentUid + "&sessionId=" + session.getId();
@@ -119,9 +135,8 @@ public class DashboardActivity extends AppCompatActivity {
                 conn.setRequestMethod("GET");
 
                 BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                reader.readLine(); // Read response to trigger the request
+                reader.readLine();
 
-                // If Spring Boot succeeds, we show the success message
                 runOnUiThread(() ->
                         Toast.makeText(this, "✅ Marked Present (Server & Cloud)", Toast.LENGTH_LONG).show()
                 );
@@ -133,15 +148,13 @@ public class DashboardActivity extends AppCompatActivity {
             }
         }).start();
 
-        // --- PART B: Send to Firebase (Google Cloud) ☁️ ---
-        // This runs instantly alongside the Server code
-        String key = firebaseRef.push().getKey(); // Create unique ID
-
+        // Part B: Firebase Cloud
+        String key = firebaseRef.push().getKey();
         Map<String, Object> data = new HashMap<>();
         data.put("studentName", currentName);
         data.put("rollNo", currentUid);
         data.put("subject", session.getSubject());
-        data.put("date", new java.util.Date().toString()); // Adds human-readable time
+        data.put("date", new java.util.Date().toString());
 
         firebaseRef.child(key).setValue(data)
                 .addOnFailureListener(e ->
