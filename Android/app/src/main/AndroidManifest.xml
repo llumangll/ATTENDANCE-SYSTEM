@@ -27,7 +27,7 @@
         android:usesCleartextTraffic="true">
 
         <activity
-            android:name=".DashboardActivity"
+            android:name=".LoginActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -36,9 +36,12 @@
         </activity>
 
         <activity
-            android:name=".MainActivity"
+            android:name=".DashboardActivity"
             android:exported="false" />
 
+        <activity
+            android:name=".MainActivity"
+            android:exported="false" />
         <activity
             android:name=".StudentActivity"
             android:exported="false" />

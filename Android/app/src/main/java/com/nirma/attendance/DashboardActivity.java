@@ -1,14 +1,13 @@
-package com.nirma.attendance;
+package com.nirma.attendance; // Keep your package name!
 
-import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.view.View;
-import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
+import android.widget.TextView; // Import added
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import org.json.JSONArray;
@@ -22,33 +21,45 @@ import java.util.List;
 
 public class DashboardActivity extends AppCompatActivity {
 
-    // REPLACE THIS WITH YOUR COMPUTER'S IP ADDRESS!
-    private static final String BASE_URL = "http://10.82.33.138:8080/api";
+    // REPLACE WITH YOUR REAL IP AGAIN!
+    private static final String BASE_URL = "http://192.168.1.5:8080/api";
 
     private ListView sessionList;
     private Button btnRefresh;
+    private TextView tvWelcome; // To show "Welcome, Umang"
     private ArrayAdapter<ClassSession> adapter;
     private List<ClassSession> sessions = new ArrayList<>();
+
+    // User Data
+    private String currentUid;
+    private String currentName;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_dashboard);
 
+        // 1. Get User Data from Login
+        SharedPreferences prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE);
+        currentUid = prefs.getString("uid", "Unknown");
+        currentName = prefs.getString("name", "Student");
+
+        // 2. Setup UI
+        tvWelcome = findViewById(R.id.tvWelcome); // We will add this ID to XML next
         sessionList = findViewById(R.id.sessionList);
         btnRefresh = findViewById(R.id.btnRefresh);
 
-        // Setup the List Adapter
+        // Set the Welcome Message
+        tvWelcome.setText("Welcome, " + currentName);
+
         adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, sessions);
         sessionList.setAdapter(adapter);
 
-        // 1. Load classes when screen opens
         fetchActiveSessions();
 
-        // 2. Refresh button click
         btnRefresh.setOnClickListener(v -> fetchActiveSessions());
 
-        // 3. Handle clicking a class (Mark Attendance)
+        // 3. Mark Attendance on Click
         sessionList.setOnItemClickListener((parent, view, position, id) -> {
             ClassSession selectedSession = sessions.get(position);
             markAttendance(selectedSession);
@@ -67,21 +78,19 @@ public class DashboardActivity extends AppCompatActivity {
                 String line;
                 while ((line = reader.readLine()) != null) response.append(line);
 
-                // Parse JSON
                 JSONArray jsonArray = new JSONArray(response.toString());
                 final List<ClassSession> newSessions = new ArrayList<>();
 
                 for (int i = 0; i < jsonArray.length(); i++) {
                     JSONObject obj = jsonArray.getJSONObject(i);
-                    ClassSession session = new ClassSession(
+                    // Use the 3-argument constructor
+                    newSessions.add(new ClassSession(
                             obj.getLong("id"),
                             obj.getString("professorName"),
                             obj.getString("subject")
-                    );
-                    newSessions.add(session);
+                    ));
                 }
 
-                // Update UI on Main Thread
                 new Handler(Looper.getMainLooper()).post(() -> {
                     sessions.clear();
                     sessions.addAll(newSessions);
@@ -91,16 +100,31 @@ public class DashboardActivity extends AppCompatActivity {
 
             } catch (Exception e) {
                 e.printStackTrace();
-                runOnUiThread(() -> Toast.makeText(DashboardActivity.this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show());
             }
         }).start();
     }
 
     private void markAttendance(ClassSession session) {
-        // For now, let's just show a Toast.
-        // Later we will connect this to your "Student ID" logic.
-        Toast.makeText(this, "Selected: " + session.getSubject(), Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            try {
+                // CALL THE SERVER: /api/mark?uid=...&sessionId=...
+                String link = BASE_URL + "/mark?uid=" + currentUid + "&sessionId=" + session.getId();
+                URL url = new URL(link);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
 
-        // TODO: Send request to /api/mark?uid=101&sessionId=...
+                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                String response = reader.readLine(); // "Success"
+
+                runOnUiThread(() ->
+                        Toast.makeText(this, "✅ Marked Present for " + session.getSubject(), Toast.LENGTH_LONG).show()
+                );
+
+            } catch (Exception e) {
+                runOnUiThread(() ->
+                        Toast.makeText(this, "❌ Failed: " + e.getMessage(), Toast.LENGTH_SHORT).show()
+                );
+            }
+        }).start();
     }
 }
