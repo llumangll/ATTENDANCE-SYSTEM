@@ -1,4 +1,4 @@
-package com.nirma.attendance; // Keep your package name!
+package com.nirma.attendance;
 
 import android.content.SharedPreferences;
 import android.os.Bundle;
@@ -7,7 +7,7 @@ import android.os.Looper;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
-import android.widget.TextView; // Import added
+import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import org.json.JSONArray;
@@ -19,47 +19,53 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
+// 1. Firebase Imports
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import java.util.HashMap;
+import java.util.Map;
+
 public class DashboardActivity extends AppCompatActivity {
 
-    // REPLACE WITH YOUR REAL IP AGAIN!
-    private static final String BASE_URL = "http://192.168.1.5:8080/api";
+    // ⚠️ IMPORTANT: Check your IP Address!
+    private static final String BASE_URL = "http://10.82.33.138:8080/api";
 
     private ListView sessionList;
     private Button btnRefresh;
-    private TextView tvWelcome; // To show "Welcome, Umang"
+    private TextView tvWelcome;
     private ArrayAdapter<ClassSession> adapter;
     private List<ClassSession> sessions = new ArrayList<>();
 
-    // User Data
     private String currentUid;
     private String currentName;
+
+    // 2. Firebase Reference
+    private DatabaseReference firebaseRef;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_dashboard);
 
-        // 1. Get User Data from Login
+        // 3. Initialize Firebase (Creates a folder called "Attendance" in the cloud)
+        firebaseRef = FirebaseDatabase.getInstance().getReference("Attendance");
+
         SharedPreferences prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE);
         currentUid = prefs.getString("uid", "Unknown");
         currentName = prefs.getString("name", "Student");
 
-        // 2. Setup UI
-        tvWelcome = findViewById(R.id.tvWelcome); // We will add this ID to XML next
+        tvWelcome = findViewById(R.id.tvWelcome);
         sessionList = findViewById(R.id.sessionList);
         btnRefresh = findViewById(R.id.btnRefresh);
 
-        // Set the Welcome Message
         tvWelcome.setText("Welcome, " + currentName);
 
         adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, sessions);
         sessionList.setAdapter(adapter);
 
         fetchActiveSessions();
-
         btnRefresh.setOnClickListener(v -> fetchActiveSessions());
 
-        // 3. Mark Attendance on Click
         sessionList.setOnItemClickListener((parent, view, position, id) -> {
             ClassSession selectedSession = sessions.get(position);
             markAttendance(selectedSession);
@@ -83,7 +89,6 @@ public class DashboardActivity extends AppCompatActivity {
 
                 for (int i = 0; i < jsonArray.length(); i++) {
                     JSONObject obj = jsonArray.getJSONObject(i);
-                    // Use the 3-argument constructor
                     newSessions.add(new ClassSession(
                             obj.getLong("id"),
                             obj.getString("professorName"),
@@ -105,26 +110,42 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     private void markAttendance(ClassSession session) {
+        // --- PART A: Send to Spring Boot (Your Laptop) ---
         new Thread(() -> {
             try {
-                // CALL THE SERVER: /api/mark?uid=...&sessionId=...
                 String link = BASE_URL + "/mark?uid=" + currentUid + "&sessionId=" + session.getId();
                 URL url = new URL(link);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
 
                 BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                String response = reader.readLine(); // "Success"
+                reader.readLine(); // Read response to trigger the request
 
+                // If Spring Boot succeeds, we show the success message
                 runOnUiThread(() ->
-                        Toast.makeText(this, "✅ Marked Present for " + session.getSubject(), Toast.LENGTH_LONG).show()
+                        Toast.makeText(this, "✅ Marked Present (Server & Cloud)", Toast.LENGTH_LONG).show()
                 );
 
             } catch (Exception e) {
                 runOnUiThread(() ->
-                        Toast.makeText(this, "❌ Failed: " + e.getMessage(), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, "❌ Server Error: " + e.getMessage(), Toast.LENGTH_SHORT).show()
                 );
             }
         }).start();
+
+        // --- PART B: Send to Firebase (Google Cloud) ☁️ ---
+        // This runs instantly alongside the Server code
+        String key = firebaseRef.push().getKey(); // Create unique ID
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("studentName", currentName);
+        data.put("rollNo", currentUid);
+        data.put("subject", session.getSubject());
+        data.put("date", new java.util.Date().toString()); // Adds human-readable time
+
+        firebaseRef.child(key).setValue(data)
+                .addOnFailureListener(e ->
+                        Toast.makeText(this, "Cloud Error: " + e.getMessage(), Toast.LENGTH_SHORT).show()
+                );
     }
 }
