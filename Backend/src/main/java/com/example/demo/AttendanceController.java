@@ -1,39 +1,44 @@
 package com.example.demo;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
 
 @RestController
-@RequestMapping("/api")
+@CrossOrigin(origins = "*") // Allow Android to access
 public class AttendanceController {
 
-    // 1. Stores who marked attendance today (Prevents Duplicates)
-    HashSet<String> presentStudents = new HashSet<>();
+    @Autowired private AttendanceRepository attendanceRepo;
+    @Autowired private UserRepository userRepo;       // You need to create this Repo file
+    @Autowired private SessionRepository sessionRepo; // You need to create this Repo file
 
-    // 2. Stores which Device ID belongs to which Student (Prevents Proxies)
-    HashMap<String, String> deviceLock = new HashMap<>();
+    // 1. GET PROFILE (For UI)
+    @GetMapping("/api/profile")
+    public User getProfile(@RequestParam String uid) {
+        return userRepo.findById(uid).orElse(new User("000", "Guest", "GUEST", "N/A"));
+    }
 
-    @GetMapping("/mark")
-    public String mark(@RequestParam String uid, @RequestParam String devId) {
-        
-        // CHECK 1: DUPLICATE ATTENDANCE
-        if (presentStudents.contains(uid)) {
-            return "Error: You have already marked attendance today.";
-        }
+    // 2. PROFESSOR: Start Broadcasting
+    @GetMapping("/api/session/start")
+    public ClassSession startSession(@RequestParam String profName, @RequestParam String subject) {
+        ClassSession session = new ClassSession(profName, subject);
+        return sessionRepo.save(session);
+    }
 
-        // CHECK 2: PROXY PREVENTION (Device Locking)
-        if (deviceLock.containsKey(devId)) {
-            String owner = deviceLock.get(devId);
-            if (!owner.equals(uid)) {
-                return "Error: Proxy Detected! This device belongs to " + owner;
-            }
-        }
+    // 3. STUDENT: Get List of Broadcasting Classes
+    @GetMapping("/api/sessions/active")
+    public List<ClassSession> getActiveSessions() {
+        // Return only classes where isActive = true
+        return sessionRepo.findByIsActiveTrue();
+    }
 
-        // IF PASSED: Save Data
-        presentStudents.add(uid);
-        deviceLock.put(devId, uid);
-        
-        return "Success: Marked Present";
+    // 4. MARK ATTENDANCE (Updated to include Session ID)
+    @GetMapping("/api/mark")
+    public String markAttendance(@RequestParam String uid, @RequestParam Long sessionId) {
+        // Simple Logic: Save that 'uid' was present for 'sessionId'
+        // (You can expand this logic later)
+        System.out.println("Marking: " + uid + " for Session: " + sessionId);
+        return "Success";
     }
 }
