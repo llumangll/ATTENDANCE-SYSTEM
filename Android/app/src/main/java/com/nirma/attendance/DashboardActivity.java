@@ -94,6 +94,8 @@ public class DashboardActivity extends AppCompatActivity {
         final EditText input = new EditText(this);
         input.setHint("e.g. 1234");
         builder.setView(input);
+        input.setTextColor(android.graphics.Color.BLACK);
+        builder.setView(input);
 
         // Buttons
         builder.setPositiveButton("Mark Present", (dialog, which) -> {
