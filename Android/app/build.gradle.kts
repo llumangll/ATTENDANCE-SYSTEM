@@ -53,4 +53,7 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
     implementation("com.google.firebase:firebase-database") // Changed to Realtime Database
     implementation("com.google.firebase:firebase-auth")
+
+    // Google Sign-In (Correct Syntax for your project)
+    implementation("com.google.android.gms:play-services-auth:20.7.0")
 }

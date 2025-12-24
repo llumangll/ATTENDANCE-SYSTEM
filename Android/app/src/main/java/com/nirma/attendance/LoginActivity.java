@@ -3,89 +3,113 @@ package com.nirma.attendance;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.widget.Button;
-import android.widget.EditText;
 import android.widget.Switch;
-import android.widget.TextView; // Import TextView
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
+import com.google.android.gms.auth.api.signin.GoogleSignInClient;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.common.SignInButton;
+import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.AuthCredential;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.GoogleAuthProvider;
+
 public class LoginActivity extends AppCompatActivity {
 
-    private EditText etRollNo, etName;
-    private Button btnLogin;
+    private static final int RC_SIGN_IN = 9001;
+    private FirebaseAuth mAuth;
+    private GoogleSignInClient mGoogleSignInClient;
     private Switch switchRole;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_login);
 
-        // 1. SMART AUTO-LOGIN
-        SharedPreferences prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE);
-        if (prefs.contains("uid")) {
-            String role = prefs.getString("role", "STUDENT");
-            if (role.equals("PROFESSOR")) {
-                startActivity(new Intent(this, ProfessorActivity.class));
-            } else {
-                startActivity(new Intent(this, DashboardActivity.class));
+        mAuth = FirebaseAuth.getInstance();
+        switchRole = findViewById(R.id.switchRole);
+        SignInButton btnGoogleLogin = findViewById(R.id.btnGoogleLogin);
+
+        // 1. Configure Google Sign-In
+        // This 'default_web_client_id' is auto-generated from your google-services.json
+        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestIdToken(getString(R.string.default_web_client_id))
+                .requestEmail()
+                .build();
+
+        mGoogleSignInClient = GoogleSignIn.getClient(this, gso);
+
+        // 2. Button Click Listener
+        btnGoogleLogin.setOnClickListener(v -> signIn());
+    }
+
+    private void signIn() {
+        Intent signInIntent = mGoogleSignInClient.getSignInIntent();
+        startActivityForResult(signInIntent, RC_SIGN_IN);
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == RC_SIGN_IN) {
+            Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
+            try {
+                GoogleSignInAccount account = task.getResult(ApiException.class);
+                firebaseAuthWithGoogle(account);
+            } catch (ApiException e) {
+                Toast.makeText(this, "Google Sign-In Failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             }
-            finish();
+        }
+    }
+
+    private void firebaseAuthWithGoogle(GoogleSignInAccount acct) {
+        // 🔒 SECURITY CHECK: Domain Restriction
+        String email = acct.getEmail();
+        if (email == null || !email.endsWith("@nirmauni.ac.in")) {
+            Toast.makeText(this, "❌ Login Restricted: Please use your @nirmauni.ac.in email.", Toast.LENGTH_LONG).show();
+            mGoogleSignInClient.signOut(); // Log them out immediately
             return;
         }
 
-        setContentView(R.layout.activity_login);
+        AuthCredential credential = GoogleAuthProvider.getCredential(acct.getIdToken(), null);
+        mAuth.signInWithCredential(credential)
+                .addOnCompleteListener(this, task -> {
+                    if (task.isSuccessful()) {
+                        saveUserToPrefs(acct);
+                        navigateBasedOnRole();
+                    } else {
+                        Toast.makeText(this, "Authentication Failed.", Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
 
-        // 2. Setup Views
-        etRollNo = findViewById(R.id.etRollNo);
-        etName = findViewById(R.id.etName);
-        btnLogin = findViewById(R.id.btnLogin);
-        switchRole = findViewById(R.id.switchRole);
-        TextView tvTitle = findViewById(R.id.tvTitle); // Find the Title Text
+    private void saveUserToPrefs(GoogleSignInAccount acct) {
+        SharedPreferences prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
 
-        // 3. UI TOGGLE LOGIC (The part you were missing!)
-        switchRole.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (isChecked) {
-                // Professor Mode
-                tvTitle.setText("Professor Login");
-                etRollNo.setHint("Enter Employee ID");
-                btnLogin.setText("Login as Professor");
-            } else {
-                // Student Mode
-                tvTitle.setText("Student Login");
-                etRollNo.setHint("Enter Roll No (e.g. 21BCE001)");
-                btnLogin.setText("Continue");
-            }
-        });
+        String name = acct.getDisplayName();
+        // Extract Roll No from email (e.g. "21bce001" from "21bce001@nirmauni.ac.in")
+        String uid = acct.getEmail().split("@")[0];
 
-        // 4. Handle Login Button Click
-        btnLogin.setOnClickListener(v -> {
-            String uid = etRollNo.getText().toString().trim();
-            String name = etName.getText().toString().trim();
+        editor.putString("name", name);
+        editor.putString("uid", uid);
+        editor.apply();
 
-            if (uid.isEmpty() || name.isEmpty()) {
-                Toast.makeText(this, "Please fill all fields", Toast.LENGTH_SHORT).show();
-                return;
-            }
+        Toast.makeText(this, "Welcome, " + name, Toast.LENGTH_SHORT).show();
+    }
 
-            boolean isProfessor = switchRole.isChecked();
-            String role = isProfessor ? "PROFESSOR" : "STUDENT";
-
-            // Save User Data
-            SharedPreferences.Editor editor = prefs.edit();
-            editor.putString("uid", uid);
-            editor.putString("name", name);
-            editor.putString("role", role);
-            editor.apply();
-
-            Toast.makeText(this, "Welcome " + name, Toast.LENGTH_SHORT).show();
-
-            // Navigate
-            if (isProfessor) {
-                startActivity(new Intent(this, ProfessorActivity.class));
-            } else {
-                startActivity(new Intent(this, DashboardActivity.class));
-            }
-            finish();
-        });
+    private void navigateBasedOnRole() {
+        boolean isProfessor = switchRole.isChecked();
+        if (isProfessor) {
+            startActivity(new Intent(this, ProfessorActivity.class));
+        } else {
+            startActivity(new Intent(this, DashboardActivity.class));
+        }
+        finish();
     }
 }
