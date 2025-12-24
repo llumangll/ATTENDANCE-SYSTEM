@@ -1,4 +1,4 @@
-package com.example.demo;
+package com.example.demo; // ✅ Keeps your existing package
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -8,41 +8,43 @@ import java.time.LocalDateTime;
 
 @Entity
 public class ClassSession {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    private String professorName; 
-    private String subject;       
-    private boolean isActive;     
-    private LocalDateTime startTime;
+    private String professorName;
+    private String subject;
+    private String password;
+    private boolean active;
+    private LocalDateTime createdAt;
     
-    // Stores the 4-digit OTP
-    private String password; 
+    // 🆕 NEW: Location Fields
+    private double lat;
+    private double lon;
 
-    public ClassSession() {}
-
-    public ClassSession(String professorName, String subject, String password) {
-        this.professorName = professorName;
-        this.subject = subject;
-        this.password = password;
-        this.isActive = true;
-        this.startTime = LocalDateTime.now();
-    }
-
-    // Getters
+    // --- Getters and Setters ---
     public Long getId() { return id; }
-    public String getProfessorName() { return professorName; }
-    public String getSubject() { return subject; }
-    public boolean isActive() { return isActive; }
-    public String getPassword() { return password; }
-    
-    // 🆕 IMPORTANT FIX: Add this Setter!
-    // This allows the Controller to manually assign ID = 1, 2, 3...
-    public void setId(Long id) { 
-        this.id = id; 
-    }
+    public void setId(Long id) { this.id = id; }
 
-    public void endSession() { this.isActive = false; }
+    public String getProfessorName() { return professorName; }
+    public void setProfessorName(String professorName) { this.professorName = professorName; }
+
+    public String getSubject() { return subject; }
+    public void setSubject(String subject) { this.subject = subject; }
+
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
+
+    public boolean isActive() { return active; }
+    public void setActive(boolean active) { this.active = active; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    // 🆕 Getters/Setters for Location (This fixes the red errors!)
+    public double getLat() { return lat; }
+    public void setLat(double lat) { this.lat = lat; }
+
+    public double getLon() { return lon; }
+    public void setLon(double lon) { this.lon = lon; }
 }

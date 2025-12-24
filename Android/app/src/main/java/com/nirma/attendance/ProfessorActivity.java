@@ -1,24 +1,43 @@
 package com.nirma.attendance;
 
+import android.Manifest;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.view.View;
+import android.os.Handler;
+import android.os.Looper;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
+
+import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.Random;
 
 public class ProfessorActivity extends AppCompatActivity {
 
     private static final String BASE_URL = "http://10.82.33.138:8080/api";
+    private static final int LOC_REQ_CODE = 1001;
 
     private EditText etSubject;
-    private Button btnStartSession, btnStopSession, btnLogout;
+    private Button btnStartSession;
+    private TextView tvCode, tvProfWelcome;
+    private boolean isSessionActive = false;
+    private long currentSessionId = -1;
+    private String professorName;
+    private FusedLocationProviderClient fusedLocationClient;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -27,102 +46,151 @@ public class ProfessorActivity extends AppCompatActivity {
 
         etSubject = findViewById(R.id.etSubject);
         btnStartSession = findViewById(R.id.btnStartSession);
-        btnStopSession = findViewById(R.id.btnStopSession); // 🆕 Find Stop Button
-        btnLogout = findViewById(R.id.btnLogout);
+        tvCode = findViewById(R.id.tvCode);
+        tvProfWelcome = findViewById(R.id.tvProfWelcome);
+        Button btnLogout = findViewById(R.id.btnLogoutProf);
 
+        // 1. Initialize Location Client
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+
+        // 2. Get Professor Name
+        SharedPreferences prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE);
+        professorName = prefs.getString("name", "Professor");
+        tvProfWelcome.setText("Welcome, " + professorName);
+
+        // 3. Start/Stop Button Logic
+        btnStartSession.setOnClickListener(v -> {
+            if (!isSessionActive) {
+                // Check Permission -> Get Location -> Start Session
+                if (checkLocationPermission()) {
+                    startSessionWithLocation();
+                } else {
+                    requestLocationPermission();
+                }
+            } else {
+                stopSession();
+            }
+        });
+
+        // 4. Logout Logic
         btnLogout.setOnClickListener(v -> {
-            SharedPreferences prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE);
             SharedPreferences.Editor editor = prefs.edit();
             editor.clear();
             editor.apply();
-            Intent intent = new Intent(ProfessorActivity.this, LoginActivity.class);
-            startActivity(intent);
+            startActivity(new Intent(this, LoginActivity.class));
             finish();
         });
+    }
 
-        // START CLICK
-        btnStartSession.setOnClickListener(v -> {
-            String subject = etSubject.getText().toString().trim();
-            if (subject.isEmpty()) {
-                Toast.makeText(this, "Enter a subject first!", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            startSession(subject);
-        });
+    // --- LOCATION HELPERS ---
+    private boolean checkLocationPermission() {
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED;
+    }
 
-        // STOP CLICK 🆕
-        btnStopSession.setOnClickListener(v -> {
-            String subject = etSubject.getText().toString().replace("CLASS CODE: ", "").split("\n")[0].trim();
-            // Note: We are being a bit lazy getting the subject back from the text box,
-            // but for now let's just use a saved variable or the field if it wasn't overwritten.
-            // BETTER WAY: Let's store the current subject in a variable.
-            if (currentSubject != null) {
-                stopSession(currentSubject);
+    private void requestLocationPermission() {
+        ActivityCompat.requestPermissions(this,
+                new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOC_REQ_CODE);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == LOC_REQ_CODE && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            startSessionWithLocation();
+        } else {
+            Toast.makeText(this, "⚠️ Location needed to prevent proxies!", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void startSessionWithLocation() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+
+        Toast.makeText(this, "Fetching GPS...", Toast.LENGTH_SHORT).show();
+
+        fusedLocationClient.getLastLocation().addOnSuccessListener(this, location -> {
+            if (location != null) {
+                sendStartRequest(location.getLatitude(), location.getLongitude());
+            } else {
+                // Fallback if GPS is off/weak (sends 0.0)
+                Toast.makeText(this, "⚠️ Weak GPS. Starting anyway.", Toast.LENGTH_SHORT).show();
+                sendStartRequest(0.0, 0.0);
             }
         });
     }
 
-    private String currentSubject = null; // Store subject to stop it later
+    // --- NETWORK REQUESTS ---
+    private void sendStartRequest(double lat, double lon) {
+        String subject = etSubject.getText().toString();
+        if (subject.isEmpty()) {
+            Toast.makeText(this, "Please enter a subject", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
-    private void startSession(String subject) {
+        String generatedPassword = String.format("%04d", new Random().nextInt(10000));
+
         new Thread(() -> {
             try {
-                SharedPreferences prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE);
-                String professorName = prefs.getString("name", "Unknown Professor");
+                // 🛠 FIX: Encode Name and Subject to handle spaces safely
+                String safeName = java.net.URLEncoder.encode(professorName, "UTF-8");
+                String safeSubject = java.net.URLEncoder.encode(subject, "UTF-8");
 
-                String link = BASE_URL + "/create?subject=" + subject + "&professorName=" + professorName;
+                String link = BASE_URL + "/sessions/start?professorName=" + safeName
+                        + "&subject=" + safeSubject
+                        + "&password=" + generatedPassword
+                        + "&lat=" + lat + "&lon=" + lon;
+
                 URL url = new URL(link);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
 
-                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                String otpCode = reader.readLine();
+                int responseCode = conn.getResponseCode();
+                if (responseCode == 200) {
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                    String response = reader.readLine();
+                    JSONObject json = new JSONObject(response);
+                    currentSessionId = json.getLong("id");
 
-                runOnUiThread(() -> {
-                    Toast.makeText(this, "Session Started!", Toast.LENGTH_SHORT).show();
-
-                    // 1. Update UI to "Live Mode"
-                    currentSubject = subject; // Save for later
-                    etSubject.setText("CLASS CODE: " + otpCode + "\n(" + subject + ")");
-                    etSubject.setEnabled(false); // Lock text
-
-                    btnStartSession.setVisibility(View.GONE); // Hide Start
-                    btnStopSession.setVisibility(View.VISIBLE); // Show Stop
-                });
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        isSessionActive = true;
+                        tvCode.setText("CODE: " + generatedPassword);
+                        btnStartSession.setText("STOP SESSION");
+                        btnStartSession.setBackgroundColor(android.graphics.Color.RED);
+                        Toast.makeText(this, "✅ Session Started!", Toast.LENGTH_SHORT).show();
+                    });
+                } else {
+                    new Handler(Looper.getMainLooper()).post(() ->
+                            Toast.makeText(this, "Server Error: " + responseCode, Toast.LENGTH_SHORT).show());
+                }
 
             } catch (Exception e) {
-                runOnUiThread(() -> Toast.makeText(this, "Failed: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                e.printStackTrace();
+                new Handler(Looper.getMainLooper()).post(() ->
+                        Toast.makeText(this, "Connection Failed: " + e.getMessage(), Toast.LENGTH_SHORT).show());
             }
         }).start();
     }
 
-    private void stopSession(String subject) {
+    private void stopSession() {
         new Thread(() -> {
             try {
-                SharedPreferences prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE);
-                String professorName = prefs.getString("name", "Unknown Professor");
-
-                String link = BASE_URL + "/stop?subject=" + subject + "&professorName=" + professorName;
-                URL url = new URL(link);
+                URL url = new URL(BASE_URL + "/sessions/stop?sessionId=" + currentSessionId);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
-                conn.getInputStream(); // Trigger request
+                conn.getInputStream();
 
-                runOnUiThread(() -> {
-                    Toast.makeText(this, "🛑 Session Stopped", Toast.LENGTH_SHORT).show();
-
-                    // 2. Reset UI to "Ready Mode"
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    isSessionActive = false;
+                    tvCode.setText("");
+                    btnStartSession.setText("Start Session");
+                    btnStartSession.setBackgroundColor(android.graphics.Color.parseColor("#4CAF50"));
                     etSubject.setText("");
-                    etSubject.setEnabled(true);
-                    etSubject.setHint("Enter Subject (e.g. Java)");
-
-                    btnStopSession.setVisibility(View.GONE); // Hide Stop
-                    btnStartSession.setVisibility(View.VISIBLE); // Show Start
-                    currentSubject = null;
+                    Toast.makeText(this, "Session Stopped", Toast.LENGTH_SHORT).show();
                 });
-
             } catch (Exception e) {
-                runOnUiThread(() -> Toast.makeText(this, "Failed to stop: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                e.printStackTrace();
             }
         }).start();
     }
