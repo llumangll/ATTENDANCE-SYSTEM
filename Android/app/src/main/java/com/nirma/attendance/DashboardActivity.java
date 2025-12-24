@@ -7,7 +7,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
@@ -36,8 +35,7 @@ public class DashboardActivity extends AppCompatActivity {
     private ListView sessionList;
     private Button btnRefresh;
     private TextView tvWelcome;
-    // Note: Use SessionAdapter if you want the Cards, or ArrayAdapter for simple list.
-    // I am using SessionAdapter here since we added it earlier.
+    private TextView tvRollNo; // 🆕 Added for ID
     private SessionAdapter adapter;
     private List<ClassSession> sessions = new ArrayList<>();
 
@@ -52,17 +50,23 @@ public class DashboardActivity extends AppCompatActivity {
 
         firebaseRef = FirebaseDatabase.getInstance().getReference("Attendance");
 
+        // 1. Get Data from SharedPreferences (Saved during Login)
         SharedPreferences prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE);
-        currentUid = prefs.getString("uid", "Unknown");
+        currentUid = prefs.getString("uid", "UnknownID");
         currentName = prefs.getString("name", "Student");
 
-        tvWelcome = findViewById(R.id.tvWelcome);
+        // 2. Link Views to XML IDs
+        tvWelcome = findViewById(R.id.tvWelcomeName); // Matches new XML ID
+        tvRollNo = findViewById(R.id.tvRollNo);       // Matches new XML ID
         sessionList = findViewById(R.id.sessionList);
         btnRefresh = findViewById(R.id.btnRefresh);
         Button btnLogout = findViewById(R.id.btnLogout);
 
-        tvWelcome.setText("Welcome, " + currentName);
+        // 3. Set the Text on Screen
+        tvWelcome.setText("Hello, " + currentName);
+        tvRollNo.setText("ID: " + currentUid.toUpperCase()); // e.g. "ID: 21BCE001"
 
+        // 4. Setup List Adapter
         adapter = new SessionAdapter(this, sessions);
         sessionList.setAdapter(adapter);
 
@@ -75,6 +79,7 @@ public class DashboardActivity extends AppCompatActivity {
             showPasswordDialog(selectedSession);
         });
 
+        // Logout Logic
         btnLogout.setOnClickListener(v -> {
             SharedPreferences.Editor editor = prefs.edit();
             editor.clear();
@@ -90,18 +95,14 @@ public class DashboardActivity extends AppCompatActivity {
         builder.setTitle("Enter Class Code");
         builder.setMessage("Ask your professor for the 4-digit code.");
 
-        // Input Field
         final EditText input = new EditText(this);
         input.setHint("e.g. 1234");
-        builder.setView(input);
-        input.setTextColor(android.graphics.Color.BLACK);
+        input.setTextColor(android.graphics.Color.BLACK); // Fix Visibility
         builder.setView(input);
 
-        // Buttons
         builder.setPositiveButton("Mark Present", (dialog, which) -> {
             String enteredCode = input.getText().toString().trim();
 
-            // SECURITY CHECK 🔒
             if (enteredCode.equals(session.getPassword())) {
                 markAttendance(session);
             } else {
@@ -130,7 +131,6 @@ public class DashboardActivity extends AppCompatActivity {
 
                 for (int i = 0; i < jsonArray.length(); i++) {
                     JSONObject obj = jsonArray.getJSONObject(i);
-                    // NOW READING PASSWORD FROM JSON
                     newSessions.add(new ClassSession(
                             obj.getLong("id"),
                             obj.getString("professorName"),
@@ -147,10 +147,10 @@ public class DashboardActivity extends AppCompatActivity {
                     TextView tvEmpty = findViewById(R.id.tvEmpty);
                     if (sessions.isEmpty()) {
                         sessionList.setVisibility(View.GONE);
-                        tvEmpty.setVisibility(View.VISIBLE);
+                        if (tvEmpty != null) tvEmpty.setVisibility(View.VISIBLE);
                     } else {
                         sessionList.setVisibility(View.VISIBLE);
-                        tvEmpty.setVisibility(View.GONE);
+                        if (tvEmpty != null) tvEmpty.setVisibility(View.GONE);
                     }
                     Toast.makeText(DashboardActivity.this, "List Updated", Toast.LENGTH_SHORT).show();
                 });
@@ -169,10 +169,10 @@ public class DashboardActivity extends AppCompatActivity {
                 URL url = new URL(link);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
-                conn.getInputStream(); // Trigger request
+                conn.getInputStream();
 
                 runOnUiThread(() ->
-                        Toast.makeText(this, "✅ Marked Present (Server & Cloud)", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this, "✅ Marked Present", Toast.LENGTH_LONG).show()
                 );
             } catch (Exception e) {
                 runOnUiThread(() ->

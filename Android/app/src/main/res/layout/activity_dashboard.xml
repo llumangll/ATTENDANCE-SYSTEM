@@ -11,14 +11,14 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginBottom="20dp">
+        android:layout_marginBottom="5dp">
 
         <TextView
-            android:id="@+id/tvWelcome"
+            android:id="@+id/tvWelcomeName"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Welcome"
+            android:text="Hello, Student"
             android:textSize="22sp"
             android:textStyle="bold"
             android:textColor="#333"/>
@@ -31,6 +31,15 @@
             android:backgroundTint="#F44336"
             android:textSize="12sp"/>
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/tvRollNo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="ID: 21BCE000"
+        android:textSize="14sp"
+        android:textColor="#666666"
+        android:layout_marginBottom="20dp"/>
 
     <TextView
         android:layout_width="wrap_content"
