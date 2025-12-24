@@ -1,29 +1,35 @@
 package com.example.demo;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "attendance")
 public class AttendanceRecord {
-
     @Id
-    private String rollNo;      // The Student ID (Primary Key)
-    private String deviceId;    // The Phone's Unique ID
-    private LocalDateTime time; // When they marked it
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-    // Standard Constructors
+    private String studentId; // e.g. "21BCE000"
+    private Long sessionId;   // Which class they attended
+    private LocalDateTime timestamp;
+
+    // Constructors
     public AttendanceRecord() {}
-
-    public AttendanceRecord(String rollNo, String deviceId) {
-        this.rollNo = rollNo;
-        this.deviceId = deviceId;
-        this.time = LocalDateTime.now();
+    
+    public AttendanceRecord(String studentId, Long sessionId) {
+        this.studentId = studentId;
+        this.sessionId = sessionId;
+        this.timestamp = LocalDateTime.now();
     }
 
-    // Getters
-    public String getRollNo() { return rollNo; }
-    public String getDeviceId() { return deviceId; }
+    // Getters and Setters
+    public Long getId() { return id; }
+    public String getStudentId() { return studentId; }
+    public void setStudentId(String studentId) { this.studentId = studentId; }
+    public Long getSessionId() { return sessionId; }
+    public void setSessionId(Long sessionId) { this.sessionId = sessionId; }
+    public LocalDateTime getTimestamp() { return timestamp; }
 }
