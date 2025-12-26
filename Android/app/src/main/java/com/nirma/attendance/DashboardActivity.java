@@ -9,6 +9,7 @@ import android.location.Location;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings; // 🆕 Added for Device ID
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -37,6 +38,7 @@ import java.util.Map;
 
 public class DashboardActivity extends AppCompatActivity {
 
+    // ⚠️ IMPORTANT: If using Emulator use 10.0.2.2. If Physical device use 192.168.x.x
     private static final String BASE_URL = "http://10.82.33.138:8080/api";
     private static final int LOC_REQ_CODE = 1002;
 
@@ -81,7 +83,6 @@ public class DashboardActivity extends AppCompatActivity {
 
         sessionList.setOnItemClickListener((parent, view, position, id) -> {
             ClassSession selectedSession = sessions.get(position);
-            // 🔒 Step 1: Check Location Permission before showing dialog
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
                 showPasswordDialog(selectedSession);
             } else {
@@ -111,7 +112,6 @@ public class DashboardActivity extends AppCompatActivity {
         builder.setPositiveButton("Mark Present", (dialog, which) -> {
             String enteredCode = input.getText().toString().trim();
             if (enteredCode.equals(session.getPassword())) {
-                // 🔒 Step 2: Verify Location
                 verifyLocationAndMark(session);
             } else {
                 Toast.makeText(this, "❌ Wrong Password!", Toast.LENGTH_SHORT).show();
@@ -130,13 +130,11 @@ public class DashboardActivity extends AppCompatActivity {
 
         fusedLocationClient.getLastLocation().addOnSuccessListener(this, location -> {
             if (location != null) {
-                // 📏 Calculate Distance
                 float[] results = new float[1];
                 Location.distanceBetween(location.getLatitude(), location.getLongitude(),
                         session.getLat(), session.getLon(), results);
                 float distanceInMeters = results[0];
 
-                // 🛑 PROXY CHECK: 50 Meters Limit
                 if (distanceInMeters <= 50) {
                     markAttendance(session);
                 } else {
@@ -165,7 +163,6 @@ public class DashboardActivity extends AppCompatActivity {
 
                 for (int i = 0; i < jsonArray.length(); i++) {
                     JSONObject obj = jsonArray.getJSONObject(i);
-                    // 🆕 Parse Lat/Lon from JSON (handling if they are missing/0.0)
                     double sLat = obj.optDouble("lat", 0.0);
                     double sLon = obj.optDouble("lon", 0.0);
 
@@ -196,27 +193,43 @@ public class DashboardActivity extends AppCompatActivity {
         }).start();
     }
 
+    // 🚨 THIS IS THE FIXED METHOD 🚨
     private void markAttendance(ClassSession session) {
-        // Part A: Server
+        // 1. Get Unique Device ID
+        String deviceId = Settings.Secure.getString(
+                getContentResolver(),
+                Settings.Secure.ANDROID_ID
+        );
+
         new Thread(() -> {
             try {
-                String link = BASE_URL + "/mark?uid=" + currentUid + "&sessionId=" + session.getId();
+                // 2. We now send "&deviceId=" + deviceId
+                String link = BASE_URL + "/mark?uid=" + currentUid
+                        + "&sessionId=" + session.getId()
+                        + "&deviceId=" + deviceId;
+
                 URL url = new URL(link);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
-                conn.getInputStream();
 
-                runOnUiThread(() -> Toast.makeText(this, "✅ Marked Present! (Within Range)", Toast.LENGTH_LONG).show());
+                // Read Server Response (to see if it blocked us or saved us)
+                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                String response = reader.readLine();
+
+                runOnUiThread(() -> Toast.makeText(this, response, Toast.LENGTH_LONG).show());
+
             } catch (Exception e) {
-                runOnUiThread(() -> Toast.makeText(this, "❌ Server Error: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                e.printStackTrace();
+                runOnUiThread(() -> Toast.makeText(this, "Server Error: " + e.getMessage(), Toast.LENGTH_SHORT).show());
             }
         }).start();
 
-        // Part B: Firebase Backup
+        // Part B: Firebase Backup (Optional)
         String key = firebaseRef.push().getKey();
         Map<String, Object> data = new HashMap<>();
         data.put("studentName", currentName);
         data.put("rollNo", currentUid);
+        data.put("deviceId", deviceId); // Saved here too just in case
         data.put("subject", session.getSubject());
         data.put("date", new java.util.Date().toString());
         firebaseRef.child(key).setValue(data);

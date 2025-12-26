@@ -16,20 +16,32 @@ public class AttendanceRecord {
     private Long sessionId;   // Which class they attended
     private LocalDateTime timestamp;
 
-    // Constructors
+    // 🆕 NEW: Field to store the phone's unique ID
+    private String deviceId;
+
+    // Default Constructor (Required by JPA)
     public AttendanceRecord() {}
     
-    public AttendanceRecord(String studentId, Long sessionId) {
+    // 🆕 UPDATED Constructor: Now accepts deviceId
+    public AttendanceRecord(String studentId, Long sessionId, String deviceId) {
         this.studentId = studentId;
         this.sessionId = sessionId;
+        this.deviceId = deviceId;      // <--- We save it here now!
         this.timestamp = LocalDateTime.now();
     }
 
     // Getters and Setters
     public Long getId() { return id; }
+    
     public String getStudentId() { return studentId; }
     public void setStudentId(String studentId) { this.studentId = studentId; }
+    
     public Long getSessionId() { return sessionId; }
     public void setSessionId(Long sessionId) { this.sessionId = sessionId; }
+    
     public LocalDateTime getTimestamp() { return timestamp; }
+
+    // 🆕 NEW: Getter and Setter for Device ID
+    public String getDeviceId() { return deviceId; }
+    public void setDeviceId(String deviceId) { this.deviceId = deviceId; }
 }
