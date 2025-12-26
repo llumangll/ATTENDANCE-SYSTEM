@@ -1,4 +1,5 @@
 package com.example.demo;
+import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -9,4 +10,6 @@ public interface AttendanceRepository extends JpaRepository<AttendanceRecord, Lo
 
     // 2. Check if this Device was already used (Buddy Defense)
     boolean existsBySessionIdAndDeviceId(Long sessionId, String deviceId);
+
+    List<AttendanceRecord> findBySessionId(Long sessionId);
 }

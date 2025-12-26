@@ -44,6 +44,15 @@
         android:textSize="18sp"
         android:backgroundTint="#4CAF50"/>
 
+    <Button
+        android:id="@+id/btnExport"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="📂 Export Attendance (CSV)"
+        android:backgroundTint="#2196F3"
+        android:layout_marginTop="20dp"
+        android:visibility="gone" />
+
     <TextView
         android:id="@+id/tvCode"
         android:layout_width="wrap_content"

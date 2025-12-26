@@ -4,9 +4,11 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.net.Uri; // 🆕 Import for opening browser
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.View; // 🆕 Import for visibility
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -33,6 +35,7 @@ public class ProfessorActivity extends AppCompatActivity {
 
     private EditText etSubject;
     private Button btnStartSession;
+    private Button btnExport; // 🆕 NEW Button
     private TextView tvCode, tvProfWelcome;
     private boolean isSessionActive = false;
     private long currentSessionId = -1;
@@ -46,22 +49,20 @@ public class ProfessorActivity extends AppCompatActivity {
 
         etSubject = findViewById(R.id.etSubject);
         btnStartSession = findViewById(R.id.btnStartSession);
+        btnExport = findViewById(R.id.btnExport); // 🆕 Bind ID
         tvCode = findViewById(R.id.tvCode);
         tvProfWelcome = findViewById(R.id.tvProfWelcome);
         Button btnLogout = findViewById(R.id.btnLogoutProf);
 
-        // 1. Initialize Location Client
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
-        // 2. Get Professor Name
         SharedPreferences prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE);
         professorName = prefs.getString("name", "Professor");
         tvProfWelcome.setText("Welcome, " + professorName);
 
-        // 3. Start/Stop Button Logic
+        // Start/Stop Button
         btnStartSession.setOnClickListener(v -> {
             if (!isSessionActive) {
-                // Check Permission -> Get Location -> Start Session
                 if (checkLocationPermission()) {
                     startSessionWithLocation();
                 } else {
@@ -72,7 +73,19 @@ public class ProfessorActivity extends AppCompatActivity {
             }
         });
 
-        // 4. Logout Logic
+        // 🆕 EXPORT BUTTON LOGIC
+        btnExport.setOnClickListener(v -> {
+            if (currentSessionId != -1) {
+                // Open Browser to Download CSV
+                String url = BASE_URL + "/attendance/export/" + currentSessionId;
+                Intent intent = new Intent(Intent.ACTION_VIEW);
+                intent.setData(Uri.parse(url));
+                startActivity(intent);
+            } else {
+                Toast.makeText(this, "No session to export!", Toast.LENGTH_SHORT).show();
+            }
+        });
+
         btnLogout.setOnClickListener(v -> {
             SharedPreferences.Editor editor = prefs.edit();
             editor.clear();
@@ -82,7 +95,6 @@ public class ProfessorActivity extends AppCompatActivity {
         });
     }
 
-    // --- LOCATION HELPERS ---
     private boolean checkLocationPermission() {
         return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED;
@@ -114,14 +126,12 @@ public class ProfessorActivity extends AppCompatActivity {
             if (location != null) {
                 sendStartRequest(location.getLatitude(), location.getLongitude());
             } else {
-                // Fallback if GPS is off/weak (sends 0.0)
                 Toast.makeText(this, "⚠️ Weak GPS. Starting anyway.", Toast.LENGTH_SHORT).show();
                 sendStartRequest(0.0, 0.0);
             }
         });
     }
 
-    // --- NETWORK REQUESTS ---
     private void sendStartRequest(double lat, double lon) {
         String subject = etSubject.getText().toString();
         if (subject.isEmpty()) {
@@ -133,7 +143,6 @@ public class ProfessorActivity extends AppCompatActivity {
 
         new Thread(() -> {
             try {
-                // 🛠 FIX: Encode Name and Subject to handle spaces safely
                 String safeName = java.net.URLEncoder.encode(professorName, "UTF-8");
                 String safeSubject = java.net.URLEncoder.encode(subject, "UTF-8");
 
@@ -158,6 +167,7 @@ public class ProfessorActivity extends AppCompatActivity {
                         tvCode.setText("CODE: " + generatedPassword);
                         btnStartSession.setText("STOP SESSION");
                         btnStartSession.setBackgroundColor(android.graphics.Color.RED);
+                        btnExport.setVisibility(View.GONE); // Hide export while active
                         Toast.makeText(this, "✅ Session Started!", Toast.LENGTH_SHORT).show();
                     });
                 } else {
@@ -167,8 +177,6 @@ public class ProfessorActivity extends AppCompatActivity {
 
             } catch (Exception e) {
                 e.printStackTrace();
-                new Handler(Looper.getMainLooper()).post(() ->
-                        Toast.makeText(this, "Connection Failed: " + e.getMessage(), Toast.LENGTH_SHORT).show());
             }
         }).start();
     }
@@ -187,7 +195,11 @@ public class ProfessorActivity extends AppCompatActivity {
                     btnStartSession.setText("Start Session");
                     btnStartSession.setBackgroundColor(android.graphics.Color.parseColor("#4CAF50"));
                     etSubject.setText("");
-                    Toast.makeText(this, "Session Stopped", Toast.LENGTH_SHORT).show();
+
+                    // 🆕 Reveal Export Button
+                    btnExport.setVisibility(View.VISIBLE);
+
+                    Toast.makeText(this, "Session Stopped. Export Ready.", Toast.LENGTH_LONG).show();
                 });
             } catch (Exception e) {
                 e.printStackTrace();
