@@ -3,77 +3,89 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="20dp"
     android:background="#F5F5F5">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:layout_marginBottom="5dp">
+        android:orientation="vertical"
+        android:background="#2196F3"
+        android:padding="24dp"
+        android:elevation="4dp">
 
         <TextView
             android:id="@+id/tvWelcomeName"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
             android:text="Hello, Student"
+            android:textColor="#FFFFFF"
             android:textSize="22sp"
-            android:textStyle="bold"
-            android:textColor="#333"/>
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvRollNo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ID: 21BCE000"
+            android:textColor="#E3F2FD"
+            android:textSize="14sp"
+            android:layout_marginTop="4dp"/>
 
         <Button
             android:id="@+id/btnLogout"
             android:layout_width="wrap_content"
-            android:layout_height="40dp"
+            android:layout_height="35dp"
             android:text="Logout"
-            android:backgroundTint="#F44336"
-            android:textSize="12sp"/>
+            android:textSize="12sp"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#1976D2"
+            android:layout_marginTop="12dp"/>
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/tvRollNo"
+    <RelativeLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="ID: 21BCE000"
-        android:textSize="14sp"
-        android:textColor="#666666"
-        android:layout_marginBottom="20dp"/>
+        android:layout_height="match_parent">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Active Classes"
-        android:textSize="16sp"
-        android:textColor="#666"
-        android:layout_marginBottom="10dp"/>
+        <TextView
+            android:id="@+id/labelActive"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Active Classes"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="#333333"
+            android:layout_margin="16dp"/>
 
-    <ListView
-        android:id="@+id/sessionList"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:dividerHeight="10dp"
-        android:divider="@android:color/transparent"/>
+        <Button
+            android:id="@+id/btnRefresh"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:text="🔄 Refresh"
+            android:textSize="12sp"
+            android:layout_alignParentEnd="true"
+            android:layout_margin="10dp"
+            android:backgroundTint="#4CAF50"/>
 
-    <TextView
-        android:id="@+id/tvEmpty"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:gravity="center"
-        android:text="😴 No active classes right now.\nAsk your professor to start one!"
-        android:textSize="18sp"
-        android:textColor="#999"
-        android:visibility="gone"/>
+        <ListView
+            android:id="@+id/sessionList"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_below="@id/labelActive"
+            android:divider="@android:color/transparent"
+            android:dividerHeight="8dp"
+            android:paddingBottom="16dp"
+            android:clipToPadding="false"/>
 
-    <Button
-        android:id="@+id/btnRefresh"
-        android:layout_width="match_parent"
-        android:layout_height="60dp"
-        android:text="Refresh List"
-        android:layout_marginTop="10dp"
-        android:backgroundTint="#2196F3"/>
+        <TextView
+            android:id="@+id/tvEmpty"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="No active classes right now.\nCheck back later!"
+            android:textSize="16sp"
+            android:textColor="#999999"
+            android:gravity="center"
+            android:layout_centerInParent="true"
+            android:visibility="gone"/>
 
+    </RelativeLayout>
 </LinearLayout>

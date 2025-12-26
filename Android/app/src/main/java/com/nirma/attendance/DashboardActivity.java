@@ -9,7 +9,7 @@ import android.location.Location;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.Settings; // 🆕 Added for Device ID
+import android.provider.Settings;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -20,8 +20,12 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
+import com.google.android.gms.auth.api.signin.GoogleSignIn; // 🆕
+import com.google.android.gms.auth.api.signin.GoogleSignInClient; // 🆕
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions; // 🆕
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
+import com.google.firebase.auth.FirebaseAuth; // 🆕
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
@@ -38,7 +42,6 @@ import java.util.Map;
 
 public class DashboardActivity extends AppCompatActivity {
 
-    // ⚠️ IMPORTANT: If using Emulator use 10.0.2.2. If Physical device use 192.168.x.x
     private static final String BASE_URL = "http://10.82.33.138:8080/api";
     private static final int LOC_REQ_CODE = 1002;
 
@@ -90,12 +93,27 @@ public class DashboardActivity extends AppCompatActivity {
             }
         });
 
+        // 🆕 FIXED LOGOUT LOGIC
         btnLogout.setOnClickListener(v -> {
-            SharedPreferences.Editor editor = prefs.edit();
-            editor.clear();
-            editor.apply();
-            startActivity(new Intent(this, LoginActivity.class));
-            finish();
+            // 1. Sign out from Firebase
+            FirebaseAuth.getInstance().signOut();
+
+            // 2. Sign out from Google Client (Forces account picker next time)
+            GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).build();
+            GoogleSignInClient googleClient = GoogleSignIn.getClient(this, gso);
+
+            googleClient.signOut().addOnCompleteListener(this, task -> {
+                // 3. Clear Local Data
+                SharedPreferences.Editor editor = prefs.edit();
+                editor.clear();
+                editor.apply();
+
+                // 4. Go back to Login (and prevent going back)
+                Intent intent = new Intent(DashboardActivity.this, LoginActivity.class);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                startActivity(intent);
+                finish();
+            });
         });
     }
 
@@ -193,9 +211,7 @@ public class DashboardActivity extends AppCompatActivity {
         }).start();
     }
 
-    // 🚨 THIS IS THE FIXED METHOD 🚨
     private void markAttendance(ClassSession session) {
-        // 1. Get Unique Device ID
         String deviceId = Settings.Secure.getString(
                 getContentResolver(),
                 Settings.Secure.ANDROID_ID
@@ -203,7 +219,6 @@ public class DashboardActivity extends AppCompatActivity {
 
         new Thread(() -> {
             try {
-                // 2. We now send "&deviceId=" + deviceId
                 String link = BASE_URL + "/mark?uid=" + currentUid
                         + "&sessionId=" + session.getId()
                         + "&deviceId=" + deviceId;
@@ -212,7 +227,6 @@ public class DashboardActivity extends AppCompatActivity {
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
 
-                // Read Server Response (to see if it blocked us or saved us)
                 BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
                 String response = reader.readLine();
 
@@ -224,12 +238,12 @@ public class DashboardActivity extends AppCompatActivity {
             }
         }).start();
 
-        // Part B: Firebase Backup (Optional)
+        // Firebase Backup
         String key = firebaseRef.push().getKey();
         Map<String, Object> data = new HashMap<>();
         data.put("studentName", currentName);
         data.put("rollNo", currentUid);
-        data.put("deviceId", deviceId); // Saved here too just in case
+        data.put("deviceId", deviceId);
         data.put("subject", session.getSubject());
         data.put("date", new java.util.Date().toString());
         firebaseRef.child(key).setValue(data);

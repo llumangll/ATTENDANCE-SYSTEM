@@ -1,74 +1,156 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="32dp"
-    android:gravity="center"
-    android:background="#FAFAFA">
+    android:background="#F5F5F5">
 
-    <TextView
-        android:id="@+id/tvProfWelcome"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Welcome, Professor"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:textColor="#333333"
-        android:layout_marginBottom="40dp"/>
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Start a New Class Session"
-        android:textSize="18sp"
-        android:textColor="#666666"
-        android:layout_marginBottom="20dp"/>
-
-    <EditText
-        android:id="@+id/etSubject"
-        android:layout_width="match_parent"
-        android:layout_height="60dp"
-        android:hint="Enter Subject (e.g. Java)"
-        android:textColor="#000000"
-        android:textColorHint="#666666"
-        android:background="@android:drawable/edit_text"
-        android:padding="10dp"
-        android:layout_marginBottom="20dp"/>
-
-    <Button
-        android:id="@+id/btnStartSession"
-        android:layout_width="match_parent"
-        android:layout_height="60dp"
-        android:text="Start Session"
-        android:textSize="18sp"
-        android:backgroundTint="#4CAF50"/>
-
-    <Button
-        android:id="@+id/btnExport"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="📂 Export Attendance (CSV)"
-        android:backgroundTint="#2196F3"
-        android:layout_marginTop="20dp"
-        android:visibility="gone" />
+        android:orientation="vertical"
+        android:background="#2196F3"
+        android:padding="24dp"
+        android:elevation="4dp">
 
-    <TextView
-        android:id="@+id/tvCode"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text=""
-        android:textSize="32sp"
-        android:textStyle="bold"
-        android:textColor="#2196F3"
-        android:layout_marginTop="30dp"/>
+        <TextView
+            android:id="@+id/tvProfWelcome"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Welcome, Professor"
+            android:textColor="#FFFFFF"
+            android:textSize="22sp"
+            android:textStyle="bold" />
 
-    <Button
-        android:id="@+id/btnLogoutProf"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Logout"
-        android:backgroundTint="#F44336"
-        android:layout_marginTop="50dp"/>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Attendance Control Center"
+            android:textColor="#E3F2FD"
+            android:textSize="14sp"
+            android:layout_marginTop="4dp"/>
+    </LinearLayout>
 
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp"
+                app:cardBackgroundColor="#FFFFFF"
+                android:layout_marginBottom="20dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="CREATE NEW CLASS"
+                        android:textSize="12sp"
+                        android:letterSpacing="0.1"
+                        android:textStyle="bold"
+                        android:textColor="#757575"/>
+
+                    <EditText
+                        android:id="@+id/etSubject"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Subject Name (e.g. Java)"
+                        android:layout_marginTop="10dp"
+                        android:backgroundTint="#2196F3"
+                        android:textColor="#333333"
+                        android:inputType="textCapWords"/>
+
+                    <Button
+                        android:id="@+id/btnStartSession"
+                        android:layout_width="match_parent"
+                        android:layout_height="60dp"
+                        android:text="🚀 Start Session"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:backgroundTint="#4CAF50"
+                        android:layout_marginTop="20dp"
+                        app:cornerRadius="8dp"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp"
+                app:cardBackgroundColor="#FFFFFF"
+                android:layout_marginBottom="20dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="30dp"
+                    android:gravity="center">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="SESSION CODE"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="#9E9E9E"/>
+
+                    <TextView
+                        android:id="@+id/tvCode"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="----"
+                        android:textSize="48sp"
+                        android:textStyle="bold"
+                        android:textColor="#2196F3"
+                        android:letterSpacing="0.2"
+                        android:layout_marginTop="10dp"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Share this code with students"
+                        android:textSize="12sp"
+                        android:textColor="#757575"
+                        android:layout_marginTop="8dp"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <Button
+                android:id="@+id/btnExport"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:text="📂  Download Attendance Sheet"
+                android:textSize="14sp"
+                android:backgroundTint="#607D8B"
+                android:visibility="gone"
+                app:cornerRadius="8dp"/>
+
+            <Button
+                android:id="@+id/btnLogoutProf"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Logout"
+                android:textColor="#F44336"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_marginTop="30dp"/>
+
+        </LinearLayout>
+    </ScrollView>
 </LinearLayout>

@@ -4,11 +4,11 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.net.Uri; // 🆕 Import for opening browser
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.view.View; // 🆕 Import for visibility
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -18,8 +18,12 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import com.google.android.gms.auth.api.signin.GoogleSignIn; // 🆕
+import com.google.android.gms.auth.api.signin.GoogleSignInClient; // 🆕
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions; // 🆕
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
+import com.google.firebase.auth.FirebaseAuth; // 🆕
 
 import org.json.JSONObject;
 import java.io.BufferedReader;
@@ -35,7 +39,7 @@ public class ProfessorActivity extends AppCompatActivity {
 
     private EditText etSubject;
     private Button btnStartSession;
-    private Button btnExport; // 🆕 NEW Button
+    private Button btnExport;
     private TextView tvCode, tvProfWelcome;
     private boolean isSessionActive = false;
     private long currentSessionId = -1;
@@ -49,7 +53,7 @@ public class ProfessorActivity extends AppCompatActivity {
 
         etSubject = findViewById(R.id.etSubject);
         btnStartSession = findViewById(R.id.btnStartSession);
-        btnExport = findViewById(R.id.btnExport); // 🆕 Bind ID
+        btnExport = findViewById(R.id.btnExport);
         tvCode = findViewById(R.id.tvCode);
         tvProfWelcome = findViewById(R.id.tvProfWelcome);
         Button btnLogout = findViewById(R.id.btnLogoutProf);
@@ -73,10 +77,9 @@ public class ProfessorActivity extends AppCompatActivity {
             }
         });
 
-        // 🆕 EXPORT BUTTON LOGIC
+        // Export Button
         btnExport.setOnClickListener(v -> {
             if (currentSessionId != -1) {
-                // Open Browser to Download CSV
                 String url = BASE_URL + "/attendance/export/" + currentSessionId;
                 Intent intent = new Intent(Intent.ACTION_VIEW);
                 intent.setData(Uri.parse(url));
@@ -86,12 +89,27 @@ public class ProfessorActivity extends AppCompatActivity {
             }
         });
 
+        // 🆕 FIXED LOGOUT LOGIC
         btnLogout.setOnClickListener(v -> {
-            SharedPreferences.Editor editor = prefs.edit();
-            editor.clear();
-            editor.apply();
-            startActivity(new Intent(this, LoginActivity.class));
-            finish();
+            // 1. Sign out from Firebase
+            FirebaseAuth.getInstance().signOut();
+
+            // 2. Sign out from Google Client
+            GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).build();
+            GoogleSignInClient googleClient = GoogleSignIn.getClient(this, gso);
+
+            googleClient.signOut().addOnCompleteListener(this, task -> {
+                // 3. Clear Local Data
+                SharedPreferences.Editor editor = prefs.edit();
+                editor.clear();
+                editor.apply();
+
+                // 4. Go back to Login
+                Intent intent = new Intent(ProfessorActivity.this, LoginActivity.class);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                startActivity(intent);
+                finish();
+            });
         });
     }
 
@@ -167,7 +185,7 @@ public class ProfessorActivity extends AppCompatActivity {
                         tvCode.setText("CODE: " + generatedPassword);
                         btnStartSession.setText("STOP SESSION");
                         btnStartSession.setBackgroundColor(android.graphics.Color.RED);
-                        btnExport.setVisibility(View.GONE); // Hide export while active
+                        btnExport.setVisibility(View.GONE);
                         Toast.makeText(this, "✅ Session Started!", Toast.LENGTH_SHORT).show();
                     });
                 } else {
@@ -195,10 +213,7 @@ public class ProfessorActivity extends AppCompatActivity {
                     btnStartSession.setText("Start Session");
                     btnStartSession.setBackgroundColor(android.graphics.Color.parseColor("#4CAF50"));
                     etSubject.setText("");
-
-                    // 🆕 Reveal Export Button
                     btnExport.setVisibility(View.VISIBLE);
-
                     Toast.makeText(this, "Session Stopped. Export Ready.", Toast.LENGTH_LONG).show();
                 });
             } catch (Exception e) {
